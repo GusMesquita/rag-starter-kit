@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+dist/
+
+# Ferramentas
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.mise.local.toml
+
+# Segredos e dados locais
+.env
+*.db
+
+# SO
+.DS_Store
+chroma_data/
