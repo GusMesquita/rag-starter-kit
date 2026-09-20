@@ -17,13 +17,13 @@ src/
 ├── lib/api.ts             # cliente HTTP tipado para o backend (askQuestion)
 ├── lib/formatSources.ts   # regra pura de pluralização de "fontes" (testada)
 ├── components/ChatMessage.tsx, TypingIndicator.tsx
-└── index.css              # entry point do Tailwind + tema (../../design-system)
+└── index.css              # entry point do Tailwind + tema (fonte de verdade)
 ```
 
 Estilização é 100% Tailwind (utilities inline nos componentes) — não há CSS
-próprio além do `@theme` compartilhado em `index.css`. O tema (cores,
-gradiente de marca, animações) é copiado de
-[`design-system/tailwind-theme.css`](../../design-system/tailwind-theme.css).
+próprio além do bloco `@theme` em `src/index.css`, que é a única fonte de
+verdade de cores, tipografia e animações deste app. O tema é mantido **dentro
+deste repositório**: nada aqui depende de um pacote ou diretório externo.
 
 ## Scripts
 
