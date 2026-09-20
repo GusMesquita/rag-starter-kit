@@ -11,7 +11,7 @@ Comportamento do agente de resposta documentado em [docs/AGENT_BEHAVIOR.md](./do
 
 ## Por que existe
 
-É a base de qualquer "pergunte aos seus documentos": FAQ de suporte, busca em documentação interna, ou — combinado com o [lead-router](../lead-router) — responder automaticamente a dúvida de um lead antes de rotear pro time de vendas.
+É a base de qualquer "pergunte aos seus documentos": FAQ de suporte, busca em documentação interna, ou — combinado com o `lead-router` — responder automaticamente a dúvida de um lead antes de rotear pro time de vendas.
 
 ## Autenticação
 
@@ -56,8 +56,8 @@ Veja [frontend/](./frontend) — SPA React de chat que consome `POST /ask`.
 
 ## Integrações
 
-- Exposto como serviço HTTP, então qualquer workflow n8n pode chamar `/ask` como um passo de "responder com base nos documentos" — veja [n8n-ai-cookbook](../n8n-ai-cookbook).
-- O [lead-router](../lead-router) pode chamar `/ask` para responder à mensagem de um lead antes (ou em vez) de rotear para um humano.
+- Exposto como serviço HTTP, então qualquer workflow n8n pode chamar `/ask` como um passo de "responder com base nos documentos" — veja `n8n-ai-cookbook`.
+- O `lead-router` pode chamar `/ask` para responder à mensagem de um lead antes (ou em vez) de rotear para um humano.
 
 ## Testes
 
