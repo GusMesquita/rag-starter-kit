@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.1.0
         with:
           # Mesma versão fixada em .mise.toml — dev e CI não divergem.
           python-version: "3.13"
@@ -60,7 +60,7 @@ jobs:
       - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.1.0
       - name: Exportar dependências de runtime
         run: uv export --format requirements-txt --no-emit-project --no-dev -o requirements-audit.txt
       - name: Auditar CVEs do backend
