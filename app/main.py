@@ -71,7 +71,7 @@ async def health() -> dict:
     dependencies=[Depends(require_api_key), Depends(rate_limit), Depends(enforce_ingest_size)],
 )
 async def ingest(request: IngestRequest) -> dict:
-    chunk_count = ingest_document(request.text, request.source)
+    chunk_count = await ingest_document(request.text, request.source)
     # Nem `text` nem trecho dele: só o que serve para depurar o chunking.
     logger.info(
         "documento ingerido",

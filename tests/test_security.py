@@ -59,8 +59,15 @@ def test_documento_nao_fecha_a_propria_tag():
 @pytest.mark.asyncio
 async def test_contexto_recuperado_vai_dentro_das_tags(monkeypatch):
     monkeypatch.setattr(
-        rag._collection, "query", lambda **kwargs: {"documents": [["trecho recuperado"]]}
+        rag._collection,
+        "query",
+        lambda **kwargs: {
+            "documents": [["trecho recuperado"]],
+            "metadatas": [[{"source": "doc.txt"}]],
+            "distances": [[0.1]],
+        },
     )
+    monkeypatch.setattr(rag, "_anthropic", None)
     capturado = {}
 
     class FakeMessages:
@@ -187,7 +194,10 @@ async def test_rate_limit_conta_por_chave_e_nao_por_ip(monkeypatch):
 async def test_rate_limit_aplicado_no_ingest(monkeypatch):
     """Garante que a dependência está *ligada* na rota, não só que existe."""
     monkeypatch.setattr(settings, "rate_limit_per_minute", 1)
-    monkeypatch.setattr(main, "ingest_document", lambda text, source: 1)
+    async def fake_ingest(text, source):
+        return 1
+
+    monkeypatch.setattr(main, "ingest_document", fake_ingest)
     ratelimit.reset()
 
     transport = ASGITransport(app=app)

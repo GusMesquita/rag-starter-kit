@@ -7,7 +7,7 @@ POST /ingest  { text, source }  ──▶  chunk ──▶ embed (local) ──�
 POST /ask     { question }      ──▶  retrieve top-k ──▶ Claude ──▶ resposta   (requer X-API-Key)
 ```
 
-Comportamento do agente de resposta documentado em [docs/AGENT_BEHAVIOR.md](./docs/AGENT_BEHAVIOR.md) — em resumo: sem contexto recuperado, a API responde "não sei" **sem chamar o LLM**.
+Comportamento do agente de resposta documentado em [docs/AGENT_BEHAVIOR.md](./docs/AGENT_BEHAVIOR.md) — em resumo: sem contexto **dentro do threshold de distância**, a API responde "não sei" sem chamar o LLM, e toda resposta vem com as fontes citadas.
 
 ## Por que existe
 

@@ -11,6 +11,15 @@ class Settings(BaseSettings):
     collection_name: str = "documents"
     top_k: int = 4
 
+    # Distância cosseno máxima para um trecho contar como contexto. Acima
+    # disso, o vizinho mais próximo é só o menos ruim e a resposta honesta é
+    # "não sei".
+    # ponytail: 0.6 calibrado no embedding default (all-MiniLM-L6-v2) com
+    # exemplos curtos em português. Trocou o modelo de embedding ou o idioma
+    # do corpus? Recalibre medindo as distâncias reais de um par relevante e
+    # de um irrelevante — é o botão de ajuste deste projeto.
+    max_distance: float = 0.6
+
     # Default seguro: o app assume produção e só afrouxa quando alguém
     # declara ENVIRONMENT=dev explicitamente. Esquecer a variável não pode
     # resultar num serviço aberto.
