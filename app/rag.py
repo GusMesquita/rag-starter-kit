@@ -55,8 +55,7 @@ def chunk_text(text: str, chunk_size: int = 800, overlap: int = 100) -> list[str
         raise ValueError(f"chunk_size deve ser positivo; recebido {chunk_size}")
     if not 0 <= overlap < chunk_size:
         raise ValueError(
-            f"overlap deve estar em [0, chunk_size); recebido {overlap} com "
-            f"chunk_size={chunk_size}"
+            f"overlap deve estar em [0, chunk_size); recebido {overlap} com chunk_size={chunk_size}"
         )
 
     chunks = []
@@ -140,9 +139,7 @@ async def ask(question: str) -> dict:
         # No point calling the LLM with empty context — it can only guess.
         return {"answer": _NO_CONTEXT_ANSWER, "sources_used": 0, "sources": []}
 
-    context = "\n".join(
-        _wrap_document(index, doc) for index, (doc, _, _) in enumerate(relevantes)
-    )
+    context = "\n".join(_wrap_document(index, doc) for index, (doc, _, _) in enumerate(relevantes))
 
     response = await _anthropic_client().messages.create(
         model="claude-haiku-4-5-20251001",

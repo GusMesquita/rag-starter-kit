@@ -194,6 +194,7 @@ async def test_rate_limit_conta_por_chave_e_nao_por_ip(monkeypatch):
 async def test_rate_limit_aplicado_no_ingest(monkeypatch):
     """Garante que a dependência está *ligada* na rota, não só que existe."""
     monkeypatch.setattr(settings, "rate_limit_per_minute", 1)
+
     async def fake_ingest(text, source):
         return 1
 

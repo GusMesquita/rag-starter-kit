@@ -106,9 +106,7 @@ def _resultado(pares):
 
 def test_relevant_corta_o_que_esta_acima_do_threshold(monkeypatch):
     monkeypatch.setattr(settings, "max_distance", 0.5)
-    resultado = _resultado(
-        [("perto", {"source": "a"}, 0.2), ("longe", {"source": "b"}, 0.9)]
-    )
+    resultado = _resultado([("perto", {"source": "a"}, 0.2), ("longe", {"source": "b"}, 0.9)])
 
     assert [doc for doc, _, _ in rag._relevant(resultado)] == ["perto"]
 
