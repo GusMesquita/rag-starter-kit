@@ -13,15 +13,30 @@ Comportamento do agente de resposta documentado em [docs/AGENT_BEHAVIOR.md](./do
 
 É a base de qualquer "pergunte aos seus documentos": FAQ de suporte, busca em documentação interna, ou — combinado com o `lead-router` — responder automaticamente a dúvida de um lead antes de rotear pro time de vendas.
 
-## Autenticação
+## Segurança
 
-Mesmo padrão do lead-router: header `X-API-Key`, chaves em `API_KEYS` (separadas por vírgula), vazio desabilita auth (dev only). Ver `app/auth.py`.
+Mesmo padrão do lead-router. O default é **fail-closed**: `ENVIRONMENT` vale `prod` quando não definido, e em `prod` o app **não sobe** sem `API_KEYS`. Rodar sem auth exige declarar `ENVIRONMENT=dev`.
+
+| Controle | Onde | Configuração |
+| --- | --- | --- |
+| Auth por `X-API-Key` (comparação em tempo constante) | `app/auth.py` | `API_KEYS` |
+| CORS com allowlist explícita (nunca `*`) | `app/main.py` | `CORS_ORIGINS` |
+| Rate limit por chave (ou IP), janela deslizante | `app/ratelimit.py` | `RATE_LIMIT_PER_MINUTE` |
+| Teto de corpo no `/ingest` (Content-Length + `max_length`) | `app/main.py` | `MAX_INGEST_BYTES` |
+| Contexto recuperado delimitado em `<documento>` | `app/rag.py` | — |
+| Log estruturado sem texto de documento nem pergunta | `app/logging_config.py` | — |
+
+O SPA em `frontend/` **não** carrega a API key: tudo em `import.meta.env.VITE_*` é inlinado no bundle. Em produção, um proxy/BFF injeta o header server-side.
+
+### Prompt injection
+
+O conteúdo recuperado é dado, não instrução: cada trecho vai dentro de `<documento id="n">`, com o `</documento>` interno escapado, e o system prompt manda ignorar qualquer comando encontrado ali. A defesa que sustenta isso é mais simples: **o modelo do RAG não recebe tool nenhuma**, então uma instrução escondida num documento não tem o que acionar. Se um dia esse caminho ganhar tools, a delimitação sozinha deixa de bastar.
 
 ## Rodando localmente
 
 ```bash
 uv sync
-cp .env.example .env   # preencha ANTHROPIC_API_KEY e API_KEYS
+cp .env.example .env   # preencha ANTHROPIC_API_KEY (ENVIRONMENT=dev já vem no exemplo)
 uv run uvicorn app.main:app --reload
 ```
 

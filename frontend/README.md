@@ -6,7 +6,7 @@ SPA React + TypeScript com um chat mínimo sobre o endpoint `POST /ask` do backe
 
 ```bash
 npm install
-cp .env.example .env   # VITE_API_URL e VITE_API_KEY, se a auth estiver ativa no backend
+cp .env.example .env   # VITE_API_URL
 npm run dev
 ```
 
