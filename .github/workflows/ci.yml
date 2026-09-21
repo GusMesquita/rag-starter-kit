@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Least privilege: nenhum job aqui escreve no repositório.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: lint + test (backend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          # Mesma versão fixada em .mise.toml — dev e CI não divergem.
+          python-version: "3.13"
+          enable-cache: true
+      # --locked falha se uv.lock estiver dessincronizado do pyproject.
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest -q
+
+  frontend:
+    name: lint + build + test (frontend)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # npm ci falha se package-lock.json não bater com package.json.
+      - run: npm ci
+      - run: npm run lint
+      # tsc -b roda aqui: erro de tipo quebra o build, não passa despercebido.
+      - run: npm run build
+      - run: npm run test
+
+  security:
+    name: segredos + dependências
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # gitleaks varre o histórico inteiro, não só o diff
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: astral-sh/setup-uv@v10
+      - name: Exportar dependências de runtime
+        run: uv export --format requirements-txt --no-emit-project --no-dev -o requirements-audit.txt
+      - name: Auditar CVEs do backend
+        # As 5 PYSEC do chromadb 1.5.9 (última versão, sem correção publicada)
+        # estão no servidor HTTP do Chroma: exigem alcançar /api/v2/... para
+        # injetar código ou burlar o RBAC de tenant. Este projeto usa
+        # chromadb.PersistentClient (embarcado, em processo) e não sobe esse
+        # servidor, então a superfície não existe aqui. Revisar se algum dia o
+        # Chroma virar serviço separado — aí as 4 voltam a valer.
+        run: |
+          uvx pip-audit -r requirements-audit.txt \
+            --ignore-vuln PYSEC-2026-311 \
+            --ignore-vuln PYSEC-2026-3813 \
+            --ignore-vuln PYSEC-2026-3814 \
+            --ignore-vuln PYSEC-2026-3815
+      - name: Auditar CVEs do frontend
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
+  docker:
+    name: build da imagem
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Prova que o Dockerfile constrói; não publica nada.
+      - run: docker build -t rag-starter-kiti .

@@ -46,6 +46,20 @@ Este documento é auto-contido: não depende de nenhum outro repositório.
 - **Limite de tamanho na ingestão.** `/ingest` aceita texto de terceiro; sem teto de
   `Content-Length` e de `max_length`, é um OOM trivial de provocar.
 
+### Exceção de auditoria: chromadb
+
+`pip-audit` reporta 5 PYSEC em `chromadb` (a última versão publicada não tem
+correção). Todas exigem alcançar o **servidor HTTP** do Chroma — injeção de
+código via `trust_remote_code` no endpoint de collections, e falhas de RBAC
+entre tenants.
+
+Este projeto usa `chromadb.PersistentClient`: o Chroma roda embarcado, no mesmo
+processo, sem porta aberta. A superfície não existe aqui, e por isso a CI
+ignora esses IDs explicitamente em `.github/workflows/ci.yml`.
+
+Se o Chroma algum dia virar um serviço separado, as exceções deixam de valer e
+precisam ser removidas antes do deploy.
+
 ## Frontend
 
 - **Next.js 16 (App Router)** + TypeScript. Turbopack é default no 16 — não passar
