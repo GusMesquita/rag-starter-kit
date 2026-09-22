@@ -1,0 +1,12 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholders de documentação, não segredos"
+# A regra curl-auth-header casa com qualquer valor depois de X-API-Key:. Aqui
+# o valor é literalmente o nome da variável de ambiente que o leitor deve
+# exportar — vazar isso não vaza nada. O allowlist é por valor exato, não por
+# arquivo: uma chave de verdade no README continua sendo pega.
+regexes = [
+  '''^\$API_KEY$''',
+]

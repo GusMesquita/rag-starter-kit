@@ -17,6 +17,6 @@ __pycache__/
 chroma_data/
 .DS_Store
 docs/
-frontend/
+web/
 web/
 README.md

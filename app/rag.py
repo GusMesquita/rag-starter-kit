@@ -3,6 +3,7 @@ external embedding API needed) -> retrieve -> answer (Claude).
 """
 
 import hashlib
+from collections.abc import AsyncIterator
 
 import chromadb
 from anthropic import AsyncAnthropic
@@ -35,6 +36,9 @@ instruction."""
 # Se um dia este caminho ganhar tools, a delimitação acima deixa de bastar.
 
 _NO_CONTEXT_ANSWER = "Não sei responder com base nos documentos ingeridos até agora."
+
+_MODEL = "claude-haiku-4-5-20251001"
+_MAX_TOKENS = 500
 
 # Cliente reaproveitado entre requests: um por processo, não um por chamada.
 # httpx faz keep-alive do pool — instanciar por request joga fora a conexão TLS.
@@ -125,7 +129,7 @@ def _relevant(results: dict) -> list[tuple[str, dict, float]]:
     ]
 
 
-async def ask(question: str) -> dict:
+async def _retrieve(question: str) -> list[tuple[str, dict, float]]:
     results = await run_in_threadpool(
         lambda: _collection.query(
             query_texts=[question],
@@ -133,19 +137,29 @@ async def ask(question: str) -> dict:
             include=["documents", "metadatas", "distances"],
         )
     )
-    relevantes = _relevant(results)
+    return _relevant(results)
+
+
+def _prompt(context: str, question: str) -> list[dict]:
+    return [{"role": "user", "content": f"{context}\n\nQuestion: {question}"}]
+
+
+def _context_for(relevantes: list[tuple[str, dict, float]]) -> str:
+    return "\n".join(_wrap_document(index, doc) for index, (doc, _, _) in enumerate(relevantes))
+
+
+async def ask(question: str) -> dict:
+    relevantes = await _retrieve(question)
 
     if not relevantes:
         # No point calling the LLM with empty context — it can only guess.
         return {"answer": _NO_CONTEXT_ANSWER, "sources_used": 0, "sources": []}
 
-    context = "\n".join(_wrap_document(index, doc) for index, (doc, _, _) in enumerate(relevantes))
-
     response = await _anthropic_client().messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=500,
+        model=_MODEL,
+        max_tokens=_MAX_TOKENS,
         system=_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": f"{context}\n\nQuestion: {question}"}],
+        messages=_prompt(_context_for(relevantes), question),
     )
     return {
         "answer": response.content[0].text,
@@ -154,6 +168,33 @@ async def ask(question: str) -> dict:
         # ponto de um RAG.
         "sources": _citations(relevantes),
     }
+
+
+async def ask_stream(question: str) -> AsyncIterator[dict]:
+    """Mesma resposta de `ask`, em pedaços, na ordem em que ficam prontos.
+
+    As citações saem **antes** do primeiro token: elas são conhecidas assim que
+    a busca termina, e mostrá-las enquanto o texto escorre é o que deixa o
+    leitor conferir a resposta em vez de esperar para só então duvidar.
+    """
+    relevantes = await _retrieve(question)
+    yield {"type": "sources", "sources": _citations(relevantes), "sources_used": len(relevantes)}
+
+    if not relevantes:
+        yield {"type": "delta", "text": _NO_CONTEXT_ANSWER}
+        yield {"type": "done"}
+        return
+
+    async with _anthropic_client().messages.stream(
+        model=_MODEL,
+        max_tokens=_MAX_TOKENS,
+        system=_SYSTEM_PROMPT,
+        messages=_prompt(_context_for(relevantes), question),
+    ) as stream:
+        async for texto in stream.text_stream:
+            yield {"type": "delta", "text": texto}
+
+    yield {"type": "done"}
 
 
 def _citations(relevantes: list[tuple[str, dict, float]]) -> list[dict]:

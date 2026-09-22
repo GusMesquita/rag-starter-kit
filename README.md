@@ -5,6 +5,7 @@ Pipeline RAG (Retrieval-Augmented Generation) genérico e reutilizável: ingesta
 ```
 POST /ingest  { text, source }  ──▶  chunk ──▶ embed (local) ──▶ Chroma       (requer X-API-Key)
 POST /ask     { question }      ──▶  retrieve top-k ──▶ Claude ──▶ resposta   (requer X-API-Key)
+POST /ask/stream { question }   ──▶  mesma resposta, em SSE, token a token    (requer X-API-Key)
 ```
 
 Comportamento do agente de resposta documentado em [docs/AGENT_BEHAVIOR.md](./docs/AGENT_BEHAVIOR.md) — em resumo: sem contexto **dentro do threshold de distância**, a API responde "não sei" sem chamar o LLM, e toda resposta vem com as fontes citadas.
@@ -26,7 +27,7 @@ Mesmo padrão do lead-router. O default é **fail-closed**: `ENVIRONMENT` vale `
 | Contexto recuperado delimitado em `<documento>` | `app/rag.py` | — |
 | Log estruturado sem texto de documento nem pergunta | `app/logging_config.py` | — |
 
-O SPA em `frontend/` **não** carrega a API key: tudo em `import.meta.env.VITE_*` é inlinado no bundle. Em produção, um proxy/BFF injeta o header server-side.
+O app em `web/` **não** carrega a API key no browser: `lib/rag-api.ts` importa `server-only`, então importá-lo de um Client Component é erro de build. A pergunta passa pelo Route Handler `/api/ask`, que é quem põe o header. O CI constrói com uma chave-canário e falha se ela aparecer em `.next/static`.
 
 ### Prompt injection
 
@@ -41,14 +42,23 @@ uv run uvicorn app.main:app --reload
 ```
 
 ```bash
+export API_KEY=uma-das-chaves-de-API_KEYS
+
 curl -X POST localhost:8000/ingest \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: sua-chave" \
+  -H "X-API-Key: $API_KEY" \
   -d '{"text": "Nosso horário de atendimento é das 9h às 18h.", "source": "faq.txt"}'
 
 curl -X POST localhost:8000/ask \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: sua-chave" \
+  -H "X-API-Key: $API_KEY" \
+  -d '{"question": "Qual o horário de atendimento?"}'
+
+# -N desliga o buffer do curl; sem ele a resposta aparece toda de uma vez e o
+# streaming some justamente na hora de conferir se funciona.
+curl -N -X POST localhost:8000/ask/stream \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" \
   -d '{"question": "Qual o horário de atendimento?"}'
 ```
 
@@ -65,9 +75,20 @@ docker build -t rag-starter-kit .
 docker run -p 8000:8000 --env-file .env rag-starter-kit
 ```
 
-## Chat UI (frontend)
+## Chat UI (web)
 
-Veja [frontend/](./frontend) — SPA React de chat que consome `POST /ask`.
+Veja [web/](./web) — chat Next.js que consome `POST /ask/stream` e mostra a
+resposta token a token, com cada fonte e a distância que a trouxe.
+
+```bash
+cd web
+pnpm install
+cp .env.example .env.local   # RAG_API_URL e RAG_API_KEY
+pnpm dev
+```
+
+Como o browser fala com o Next e não com a API, o `CORS_ORIGINS` do backend
+não precisa listar o domínio do app.
 
 ## Integrações
 
@@ -86,4 +107,3 @@ uv run ruff check .
 
 - [ ] Deduplicação de chunks re-ingeridos do mesmo `source`
 - [ ] Suporte a PDF/DOCX na ingestão (hoje só texto puro)
-- [ ] Streaming da resposta do `/ask`
