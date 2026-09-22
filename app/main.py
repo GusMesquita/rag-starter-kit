@@ -1,3 +1,4 @@
+import json
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -5,12 +6,13 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.auth import require_api_key, verify_auth_config
 from app.config import settings
 from app.logging_config import configure_logging
-from app.rag import ask, ingest_document
+from app.rag import ask, ask_stream, ingest_document
 from app.ratelimit import rate_limit
 
 logger = logging.getLogger("rag_starter_kit.api")
@@ -89,3 +91,53 @@ async def ask_question(request: AskRequest) -> dict:
         extra={"question_chars": len(request.question), "sources_used": result["sources_used"]},
     )
     return result
+
+
+def _sse(event: dict) -> str:
+    """Um evento SSE com o payload inteiro em JSON numa linha só.
+
+    O texto do modelo tem quebras de linha, e `data: <texto cru>` terminaria o
+    evento na primeira delas — o cliente receberia meia frase como se fosse o
+    fim. JSON escapa o \\n e o enquadramento volta a ser o do protocolo.
+    """
+    return f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+
+@app.post("/ask/stream", dependencies=[Depends(require_api_key), Depends(rate_limit)])
+async def ask_question_stream(request: AskRequest) -> StreamingResponse:
+    """Mesma resposta de /ask, token a token.
+
+    Existe porque a espera de uma resposta inteira do modelo é longa o
+    bastante para o leitor achar que travou.
+    """
+
+    async def corpo() -> AsyncIterator[str]:
+        sources_used = 0
+        try:
+            async for event in ask_stream(request.question):
+                if event["type"] == "sources":
+                    sources_used = event["sources_used"]
+                yield _sse(event)
+        except Exception as exc:
+            # Os headers já foram para o cliente: não dá mais para responder
+            # 500. Sem um evento explícito, ele só veria a conexão fechar no
+            # meio e não saberia distinguir isso de uma resposta curta.
+            # Só o tipo da exceção: a mensagem crua carrega URL e payload.
+            logger.exception("falha no streaming da resposta")
+            yield _sse({"type": "error", "error": type(exc).__name__})
+            return
+        logger.info(
+            "pergunta respondida (stream)",
+            extra={"question_chars": len(request.question), "sources_used": sources_used},
+        )
+
+    return StreamingResponse(
+        corpo(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            # nginx e afins seguram a resposta em buffer por padrão, o que
+            # entrega tudo de uma vez e desfaz justamente o ponto do endpoint.
+            "X-Accel-Buffering": "no",
+        },
+    )

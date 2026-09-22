@@ -30,25 +30,36 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run pytest -q
 
-  frontend:
-    name: lint + build + test (frontend)
+  web:
+    name: lint + build + test (web)
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: frontend
+        working-directory: web
     steps:
       - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+        with:
+          # pnpm lê a versão do campo packageManager deste package.json.
+          package_json_file: web/package.json
       - uses: actions/setup-node@v7
         with:
-          node-version-file: frontend/.nvmrc
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      # npm ci falha se package-lock.json não bater com package.json.
-      - run: npm ci
-      - run: npm run lint
-      # tsc -b roda aqui: erro de tipo quebra o build, não passa despercebido.
-      - run: npm run build
-      - run: npm run test
+          node-version-file: web/.nvmrc
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      # --frozen-lockfile falha se o lockfile estiver dessincronizado.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+        env:
+          RAG_API_KEY: canario-do-ci-nao-pode-vazar
+      - name: A chave não pode estar no bundle do browser
+        # Se alguém trocar RAG_API_KEY por NEXT_PUBLIC_RAG_API_KEY, o valor é
+        # inlinado no JS servido e este grep acha. É a garantia executável de
+        # que a pergunta passa pelo Route Handler, não pelo browser.
+        run: "! grep -rq canario-do-ci-nao-pode-vazar .next/static"
 
   security:
     name: segredos + dependências
@@ -76,9 +87,12 @@ jobs:
             --ignore-vuln PYSEC-2026-3813 \
             --ignore-vuln PYSEC-2026-3814 \
             --ignore-vuln PYSEC-2026-3815
-      - name: Auditar CVEs do frontend
-        working-directory: frontend
-        run: npm audit --audit-level=high
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+      - name: Auditar CVEs do web
+        working-directory: web
+        run: pnpm audit --audit-level high
 
   docker:
     name: build da imagem

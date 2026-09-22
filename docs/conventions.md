@@ -33,8 +33,9 @@ Este documento é auto-contido: não depende de nenhum outro repositório.
   Não é JWT nem cookie — são chamadas serviço-a-serviço, não sessões de navegador.
 - **Fail-closed**: com `ENVIRONMENT=prod`, o app **não sobe** sem `API_KEYS` configurado.
   Autenticação desligada é um modo explícito de desenvolvimento, nunca um default silencioso.
-- **Nenhum segredo chega ao browser.** O frontend nunca carrega a API key; toda chamada
-  autenticada passa pelo servidor do Next.
+- **Nenhum segredo chega ao browser.** O módulo que fala com a API importa `server-only`:
+  importá-lo de um Client Component é erro de build, não um segredo publicado. O CI
+  constrói com uma chave-canário e falha se ela aparecer em `.next/static`.
 - **O modelo nunca vê segredos nem infraestrutura.**
 - **Documento ingerido é entrada não confiável.** Um documento pode conter instruções
   endereçadas ao modelo. Mitigação: o contexto vai delimitado e declarado como dado, e
